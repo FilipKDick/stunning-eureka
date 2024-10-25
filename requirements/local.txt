@@ -15,7 +15,7 @@ djangorestframework-stubs==1.4.0  # https://github.com/typeddjango/djangorestfra
 # Testing
 # ------------------------------------------------------------------------------
 pytest==6.2.5  # https://github.com/pytest-dev/pytest
-pytest-cov==3.0.0  # https://github.com/pytest-dev/pytest-cov
+pytest-cov==4.1.0  # https://github.com/pytest-dev/pytest-cov
 pytest-deadfixtures==2.2.1  # https://github.com/jllorencetti/pytest-deadfixtures
 pytest-factoryboy==2.1.0  # https://github.com/pytest-dev/pytest-factoryboy
 pytest-mock==3.7.0  # https://github.com/pytest-dev/pytest-mock/
