@@ -4,6 +4,7 @@
 .gitignore
 .gitlab-ci.yml
 .idea
+.ipython
 .pre-commit-config.yaml
 .readthedocs.yml
 .travis.yml
