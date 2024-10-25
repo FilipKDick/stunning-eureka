@@ -4,7 +4,6 @@ import pytest
 
 from pytest_factoryboy import register
 
-register(grabbo_factories.JobBoardFactory)
 register(grabbo_factories.CompanyFactory)
 register(grabbo_factories.JobLocationFactory)
 register(grabbo_factories.JobCategoryFactory)

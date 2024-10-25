@@ -5,7 +5,6 @@ from abc import (
     abstractmethod,
 )
 from contextlib import suppress
-from functools import cached_property
 from typing import Union
 
 import requests
@@ -14,10 +13,10 @@ from bs4 import BeautifulSoup
 from celery import shared_task
 from tqdm import tqdm
 
+from .choices import JobBoard
 from .models import (
     Company,
     Job,
-    JobBoard,
     JobCategory,
     JobLocation,
     JobSalary,
@@ -133,10 +132,6 @@ class NoFluffDownloader(BaseDownloader):
         + 'limit=40000&offset=0&salaryCurrency=PLN&salaryPeriod=month&region=pl'
     )
 
-    @cached_property
-    def job_board(self) -> JobBoard:
-        return JobBoard.objects.get(name='nofluff')
-
     def download_companies(self) -> None:
         response = requests.get(self.companies_url, timeout=5)
         try:
@@ -200,7 +195,15 @@ class NoFluffDownloader(BaseDownloader):
     def _scrap_company_page(self, company: dict[str, str]) -> dict[str, str | int]:
         url = f'https://nofluffjobs.com/pl{company["url"]}'
         company_data = self._get_company_resp(url)
-        spans = company_data.find(id='company-main').find_all('span')
+        try:
+            spans = company_data.find(id='company-main').find_all('span')
+        except AttributeError as ex:
+            return {
+                'url': url,
+                'industry': '',
+                'size_from': 0,
+                'size_to': 0,
+            }
         size = self._get_info_from_spans(spans, 'Wielkość firmy')
         try:
             parsed_size = self._parse_company_size(size)
@@ -230,7 +233,7 @@ class NoFluffDownloader(BaseDownloader):
         )
         job_instance = Job.objects.create(
             original_id=job['id'],
-            board=self.job_board,
+            board=JobBoard.NO_FLUFF,
             category=category,
             technology=technology,
             salary=salary,
@@ -287,10 +290,6 @@ class JustJoinItDownloader(BaseDownloader):
     jobs_url = 'https://justjoin.it/api/offers'
     companies_url = 'https://justjoin.it/api/offers'
 
-    @cached_property
-    def job_board(self) -> JobBoard:
-        return JobBoard.objects.get(name='justjoin.it')
-
     def download_companies(self) -> None:
         """
         There is no need to download companies.
@@ -335,7 +334,7 @@ class JustJoinItDownloader(BaseDownloader):
         )
         job_instance = Job.objects.create_if_not_duplicate(
             original_id=job['id'],
-            board=self.job_board,
+            board=JobBoard.JUST_JOIN_IT,
             category=category,
             technology=technology,
             salary=salary,

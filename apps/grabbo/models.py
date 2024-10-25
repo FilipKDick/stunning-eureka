@@ -1,17 +1,10 @@
 from django.db import models
 
-from .choices import HypeStatus
+from .choices import HypeStatus, JobBoard
 from .managers import (
     CompanyManager,
     JobManager,
 )
-
-
-class JobBoard(models.Model):
-    name = models.CharField(max_length=32)
-
-    def __str__(self) -> str:
-        return self.name
 
 
 class Company(models.Model):
@@ -78,11 +71,7 @@ class JobSalary(models.Model):
 
 
 class Job(models.Model):
-    board = models.ForeignKey(
-        'grabbo.JobBoard',
-        on_delete=models.SET_NULL,
-        null=True,
-    )
+    board = models.IntegerField(choices=JobBoard.choices)
     category = models.ForeignKey(
         'grabbo.JobCategory',
         on_delete=models.SET_NULL,

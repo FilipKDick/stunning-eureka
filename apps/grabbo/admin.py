@@ -11,7 +11,6 @@ from .filters import (
 from .models import (
     Company,
     Job,
-    JobBoard,
     JobCategory,
     JobLocation,
     JobSalary,
@@ -81,16 +80,6 @@ class JobLocationAdmin(admin.ModelAdmin):
 @admin.register(JobCategory)
 class JobCategoryAdmin(admin.ModelAdmin):
     """Register JobCategory model in admin panel."""
-
-
-@admin.register(JobBoard)
-class JobBoardAdmin(admin.ModelAdmin):
-    actions = ('download_jobs',)
-
-    @admin.action(description='Download jobs')
-    def download_jobs(self, request: HttpRequest, queryset: QuerySet[JobBoard]) -> None:
-        for board in queryset:
-            download_jobs.delay(board.name)
 
 
 @admin.register(Company)

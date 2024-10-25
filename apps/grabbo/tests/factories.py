@@ -3,13 +3,6 @@ import factory
 from factory import fuzzy  # noqa: WPS458 (need to import fuzzy separately)
 
 
-class JobBoardFactory(factory.django.DjangoModelFactory):
-    name = factory.Faker('word')
-
-    class Meta:
-        model = 'grabbo.JobBoard'
-
-
 class CompanyFactory(factory.django.DjangoModelFactory):
     name = factory.Faker('company')
     industry = fuzzy.FuzzyChoice(
@@ -63,7 +56,7 @@ class JobSalaryFactory(factory.django.DjangoModelFactory):
 
 
 class JobFactory(factory.django.DjangoModelFactory):
-    board = factory.SubFactory('apps.grabbo.tests.factories.JobBoardFactory')
+    board = factory.FuzzyChoice([1,2])  # TODO: use JobBoard.choices
     category = factory.SubFactory('apps.grabbo.tests.factories.JobCategoryFactory')
     technology = factory.SubFactory('apps.grabbo.tests.factories.TechnologyFactory')
     salary = factory.SubFactory('apps.grabbo.tests.factories.JobSalaryFactory')
