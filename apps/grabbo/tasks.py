@@ -155,7 +155,6 @@ class NoFluffDownloader(BaseDownloader):
             self.jobs_url,
             json={
                 'criteriaSearch': {
-                    'requirement': [self.technology],
                     'city': ['remote', 'warszawa'],
                 },
                 'page': 1,
