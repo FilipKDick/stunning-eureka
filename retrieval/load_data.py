@@ -1,5 +1,10 @@
+from dotenv import load_dotenv
+import openai
 import pandas as pd
 
+load_dotenv(".envs/local/.openai")
+
+openai.api_key = "YOUR_API_KEY"
 df = pd.read_json("retrieval/data.json")
 df.shape
 df.columns
@@ -11,8 +16,5 @@ details_df.dropna(axis=0, subset=["description"])[['title', 'description']].to_c
 
 titles_df = details_df.dropna(axis=0, subset=["description"])
 
-"""
-You are a helpful career assistant.
-You will be given a CV and a job offer.
-Please tell us, on a scale 1-10, how good match it is
-"""
+system_prompt = "You are a career guidance assistant specializing in evaluating job offers based on the qualifications, skills, and experience listed in the given CV. Your goal is to assess how well the job offer aligns with the CV. When evaluating job offers, assign a numerical score that reflects the suitability of the CV for the position, considering skills, experience, and alignment with the candidate’s career focus."
+user_query = "Here is the CV: {}. Here is the job offer:{}"

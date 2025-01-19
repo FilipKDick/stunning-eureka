@@ -275,3 +275,5 @@ apps/media/
 .env
 .envs/*
 !.envs/.local/
+
+cv.txt
