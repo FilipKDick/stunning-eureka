@@ -279,3 +279,4 @@ apps/media/
 cv.txt
 .envs/.local/.openai
 pracuje.json
+*.csv
