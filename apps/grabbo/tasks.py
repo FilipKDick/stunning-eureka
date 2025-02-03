@@ -11,9 +11,12 @@ import requests
 
 from bs4 import BeautifulSoup
 from celery import shared_task
+from django.core.paginator import Paginator
+from django.utils import timezone
 from tqdm import tqdm
 
 from .choices import JobBoard
+from .mailings import send_mail_with_offers
 from .models import (
     Company,
     Job,
@@ -382,7 +385,7 @@ class JustJoinItDownloader(BaseDownloader):
 
 
 class PracujDownloader(BaseDownloader):
-    jobs_url = 'https://www.pracuj.pl/praca/warszawa;wp?rd=30&et=3%2C17&tc=0'
+    jobs_url = 'https://www.pracuj.pl/praca/warszawa;wp/ostatnich%2024h;p,1?rd=0&et=3%2C17%2C4&ao=false&tc=0&wm=home-office%2Chybrid%2Cfull-office'
 
     def download_companies(self) -> None:
         """
@@ -400,7 +403,7 @@ class PracujDownloader(BaseDownloader):
             except requests.HTTPError:
                 logger.error('Whoops, couldnt get offers from pracuj.')
                 return
-            soup = BeautifulSoup(response.content, features="html.parser")
+            soup = BeautifulSoup(response.content, features='html.parser')
             jobs = soup.find('div', {'data-test': 'section-offers'})
             if not jobs:
                 break
@@ -413,11 +416,28 @@ class PracujDownloader(BaseDownloader):
                 if Job.objects.filter(original_id=job_id).exists():
                     continue
                 try:
-                    self._add_job(job_data, job_id)
+                    self._add_job_quick(job_data, job_id)
                 except Exception as ex:
                     logger.error('Error while adding job %s, %s', job_id, ex)
                     raise ex
             page_number += 1
+
+    def _add_job_quick(self, job_data, job_id):
+        job_url = f'https://www.pracuj.pl/praca/,oferta,{job_id}'
+        salary = job_data.find('span', attrs={'data-test':'offer-salary'})
+        salary = salary.text if salary else ''
+        seniority = job_data.find('div', attrs={'data-test':'section-company'}).next_sibling.find('li').text
+        company = self._add_or_update_company(job_data)
+        title = job_data.find('h2', attrs={'data-test':'offer-title'}).text
+        Job.objects.create(
+            original_id=job_id,
+            board=JobBoard.PRACUJ,
+            salary_text=salary,
+            company=company,
+            seniority=seniority.lower(),
+            title=title,
+            url=job_url,
+        )
 
     def _add_job(self, job_data, job_id) -> None:
         salary = job_data.find('span', attrs={'data-test':'offer-salary'})
@@ -454,6 +474,7 @@ class PracujDownloader(BaseDownloader):
             size_to=0,
         )[0]
 
+
 @shared_task()
 def download_jobs(board_name: str) -> None:
     downloaders_mapping = {
@@ -463,3 +484,22 @@ def download_jobs(board_name: str) -> None:
     }
     downloader_class = downloaders_mapping.get(board_name)
     downloader_class().download()
+
+
+@shared_task()
+def do_send():
+    PracujDownloader().download()
+    new_offers = (
+        Job
+        .objects
+        .filter(created_at__date=timezone.now().date())
+        .exclude(title__icontains='developer')
+        .exclude(title__icontains='programista')
+        .exclude(title__icontains='sprzedawca')
+        .exclude(title__icontains='handlowiec')
+        .order_by('-created_at')
+    )
+    paginator = Paginator(new_offers, 100)
+    for page in paginator.page_range:
+        offers = paginator.page(page).object_list.values('title', 'company__name', 'url')
+        send_mail_with_offers(offers)

@@ -95,6 +95,7 @@ class Job(models.Model):
     status = models.IntegerField(choices=HypeStatus.choices, default=HypeStatus.UNKNOWN)
     responsibilities = models.TextField(blank=True)
     requirements = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     objects = JobManager()
 
