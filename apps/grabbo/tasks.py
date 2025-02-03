@@ -155,7 +155,6 @@ class NoFluffDownloader(BaseDownloader):
             self.jobs_url,
             json={
                 'criteriaSearch': {
-                    'requirement': [self.technology],
                     'city': ['remote', 'warszawa'],
                 },
                 'page': 1,
@@ -382,11 +381,85 @@ class JustJoinItDownloader(BaseDownloader):
         )
 
 
+class PracujDownloader(BaseDownloader):
+    jobs_url = 'https://www.pracuj.pl/praca/warszawa;wp?rd=30&et=3%2C17&tc=0'
+
+    def download_companies(self) -> None:
+        """
+        There is no need to download companies.
+
+        The companies data is downloaded from the same API that the jobs.
+        """
+    def download_jobs(self) -> None:
+        page_number = 1
+        while True:
+            jobs_url = f'{self.jobs_url}&pn={page_number}'
+            response = requests.get(jobs_url, timeout=10)
+            try:
+                response.raise_for_status()
+            except requests.HTTPError:
+                logger.error('Whoops, couldnt get offers from pracuj.')
+                return
+            soup = BeautifulSoup(response.content, features="html.parser")
+            jobs = soup.find('div', {'data-test': 'section-offers'})
+            if not jobs:
+                break
+            for job in tqdm(jobs):
+                job_data = list(job.children)[0]
+                job_id = job_data.attrs.get('data-test-offerid')
+                if not job_id:
+                    logger.error('Found job without id! Skipping.')
+                    continue
+                if Job.objects.filter(original_id=job_id).exists():
+                    continue
+                try:
+                    self._add_job(job_data, job_id)
+                except Exception as ex:
+                    logger.error('Error while adding job %s, %s', job_id, ex)
+                    raise ex
+            page_number += 1
+
+    def _add_job(self, job_data, job_id) -> None:
+        salary = job_data.find('span', attrs={'data-test':'offer-salary'})
+        salary = salary.text if salary else ''
+        seniority = job_data.find('div', attrs={'data-test':'section-company'}).next_sibling.find('li').text
+        company = self._add_or_update_company(job_data)
+        job_url = f'https://www.pracuj.pl/praca/,oferta,{job_id}'
+        resp = requests.get(job_url)
+        job_deets = BeautifulSoup(resp.content, features="html.parser")
+        responsibilities = job_deets.find('section', attrs={'data-test': 'section-responsibilities'}).find_all('li')
+        responsibilities = ' '.join(resp.text for resp in responsibilities)
+        requirements = job_deets.find('section', attrs={'data-test': 'section-requirements'}).find_all('li')
+        requirements = ' '.join(resp.text for resp in requirements)
+        title = job_data.find('h2', attrs={'data-test':'offer-title'}).text
+        Job.objects.create(
+            original_id=job_id,
+            board=JobBoard.PRACUJ,
+            salary_text=salary,
+            company=company,
+            seniority=seniority.lower(),
+            title=title,
+            url=job_url,
+            responsibilities=responsibilities,
+            requirements=requirements,
+        )
+
+    def _add_or_update_company(self, job_data) -> Company:
+        company = job_data.find('h3')
+        company_url = company.parent.attrs.get('href')
+        return Company.objects.update_or_create(
+            name=company.text.lower().replace('sp. z o.o.', ''),
+            url=company_url,
+            size_from=0,
+            size_to=0,
+        )[0]
+
 @shared_task()
 def download_jobs(board_name: str) -> None:
     downloaders_mapping = {
         'nofluff': NoFluffDownloader,
         'justjoin.it': JustJoinItDownloader,
+        'pracuj': PracujDownloader,
     }
     downloader_class = downloaders_mapping.get(board_name)
     downloader_class().download()

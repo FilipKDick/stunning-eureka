@@ -5,3 +5,5 @@ POSTGRES_PORT=5432
 POSTGRES_DB=jobbo
 POSTGRES_USER=debug
 POSTGRES_PASSWORD=debug
+
+DATABASE_URL=postgres://debug:debug@db:5432/jobbo

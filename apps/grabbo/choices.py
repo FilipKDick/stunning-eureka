@@ -10,3 +10,4 @@ class HypeStatus(models.IntegerChoices):
 class JobBoard(models.IntegerChoices):
     NO_FLUFF = 1
     JUST_JOIN_IT = 2
+    PRACUJ = 3
