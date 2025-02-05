@@ -1,3 +1,4 @@
+import ast
 import logging
 
 from abc import (
@@ -13,6 +14,11 @@ from bs4 import BeautifulSoup
 from celery import shared_task
 from django.core.paginator import Paginator
 from django.utils import timezone
+import numpy as np
+import pandas as pd
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
 from tqdm import tqdm
 
 from .choices import JobBoard
@@ -385,19 +391,22 @@ class JustJoinItDownloader(BaseDownloader):
 
 
 class PracujDownloader(BaseDownloader):
-    jobs_url = 'https://www.pracuj.pl/praca/warszawa;wp/ostatnich%2024h;p,1?rd=0&et=3%2C17%2C4&ao=false&tc=0&wm=home-office%2Chybrid%2Cfull-office'
-
     def download_companies(self) -> None:
         """
         There is no need to download companies.
 
         The companies data is downloaded from the same API that the jobs.
         """
-    def download_jobs(self) -> None:
+    def download_jobs(self, filter) -> None:
+        model = SentenceTransformer('sentence-transformers/LaBSE')
+        embs = pd.read_csv("lena_embs.csv")
+        embs["embs"] = embs["embs"].apply(lambda x: np.array(ast.literal_eval(x)))
+        embedding_array = np.stack(embs["embs"].values)
+
         page_number = 1
         while True:
-            jobs_url = f'{self.jobs_url}&pn={page_number}'
-            response = requests.get(jobs_url, timeout=10)
+            filter = f'{filter}&pn={page_number}'
+            response = requests.get(filter, timeout=10)
             try:
                 response.raise_for_status()
             except requests.HTTPError:
@@ -416,19 +425,21 @@ class PracujDownloader(BaseDownloader):
                 if Job.objects.filter(original_id=job_id).exists():
                     continue
                 try:
-                    self._add_job_quick(job_data, job_id)
+                    self._add_job_quick(job_data, job_id, model, embedding_array)
                 except Exception as ex:
                     logger.error('Error while adding job %s, %s', job_id, ex)
                     raise ex
             page_number += 1
 
-    def _add_job_quick(self, job_data, job_id):
+    def _add_job_quick(self, job_data, job_id, model, embedding_array):
         job_url = f'https://www.pracuj.pl/praca/,oferta,{job_id}'
         salary = job_data.find('span', attrs={'data-test':'offer-salary'})
         salary = salary.text if salary else ''
         seniority = job_data.find('div', attrs={'data-test':'section-company'}).next_sibling.find('li').text
         company = self._add_or_update_company(job_data)
         title = job_data.find('h2', attrs={'data-test':'offer-title'}).text
+        max_sim = cosine_similarity(embedding_array, model.encode([title])).flatten().max()
+
         Job.objects.create(
             original_id=job_id,
             board=JobBoard.PRACUJ,
@@ -437,6 +448,7 @@ class PracujDownloader(BaseDownloader):
             seniority=seniority.lower(),
             title=title,
             url=job_url,
+            lena_comparibility=max_sim
         )
 
     def _add_job(self, job_data, job_id) -> None:
@@ -488,7 +500,8 @@ def download_jobs(board_name: str) -> None:
 
 @shared_task()
 def do_send():
-    PracujDownloader().download()
+    PracujDownloader().download_jobs('https://www.pracuj.pl/praca/warszawa;wp/ostatnich%2024h;p,1?rd=0&et=3%2C17%2C4&ao=false&tc=0&wm=hybrid%2Cfull-office')
+    PracujDownloader().download_jobs("https://www.pracuj.pl/praca/ostatnich%2024h;p,1/praca%20zdalna;wm,home-office?et=3%2C17%2C4&ao=false&tc=0")
     new_offers = (
         Job
         .objects
@@ -497,8 +510,15 @@ def do_send():
         .exclude(title__icontains='programista')
         .exclude(title__icontains='sprzedawca')
         .exclude(title__icontains='handlowiec')
-        .order_by('-created_at')
+        .exclude(title__icontains='software developer')
+        .exclude(title__icontains='technik')
+        .exclude(title__icontains='kucharz')
+        .exclude(title__icontains='kelner')
+        .exclude(title__icontains='księgowa')
+        .exclude(title__icontains='engineer')
+        .order_by('-lena_comparibility')
     )
+
     paginator = Paginator(new_offers, 100)
     for page in paginator.page_range:
         offers = paginator.page(page).object_list.values('title', 'company__name', 'url')

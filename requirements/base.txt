@@ -27,3 +27,9 @@ drf-spectacular==0.26.4
 # ------------------------------------------------------------------------------
 beautifulsoup4==4.10.0  # https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 tqdm==4.63.1  # https://github.com/tqdm/tqdm
+
+# Analysing job titles with ML
+sentence-transformers
+scikit-learn
+torch
+pandas

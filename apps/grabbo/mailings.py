@@ -6,6 +6,6 @@ def send_mail_with_offers(offers: list):
     for offer in offers:
         company = offer.get('company__name', offer.get('company'))
         content += f'<a href="{offer["url"]}">{offer["title"]} w {company}</a><br>'
-    msg = EmailMessage('Found a lot of new offers', body=content, to=['filipkjagiela@gmail.com'])
+    msg = EmailMessage('Found a lot of new offers', body=content, to=['olenansn@gmail.com'])
     msg.content_subtype = 'html'
     msg.send()

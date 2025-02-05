@@ -96,6 +96,7 @@ class Job(models.Model):
     responsibilities = models.TextField(blank=True)
     requirements = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    lena_comparibility = models.FloatField(default=0.0)
 
     objects = JobManager()
 
