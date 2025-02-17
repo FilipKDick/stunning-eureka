@@ -438,7 +438,7 @@ class PracujDownloader(BaseDownloader):
         seniority = job_data.find('div', attrs={'data-test':'section-company'}).next_sibling.find('li').text
         company = self._add_or_update_company(job_data)
         title = job_data.find('h2', attrs={'data-test':'offer-title'}).text
-        max_sim = cosine_similarity(embedding_array, model.encode([title])).flatten().max()
+        mean_sim = cosine_similarity(embedding_array, model.encode([title])).flatten().mean()
 
         Job.objects.create(
             original_id=job_id,
@@ -448,7 +448,7 @@ class PracujDownloader(BaseDownloader):
             seniority=seniority.lower(),
             title=title,
             url=job_url,
-            lena_comparibility=max_sim
+            lena_comparibility=mean_sim
         )
 
     def _add_job(self, job_data, job_id) -> None:
@@ -499,9 +499,9 @@ def download_jobs(board_name: str) -> None:
 
 
 @shared_task()
-def do_send():
-    PracujDownloader().download_jobs('https://www.pracuj.pl/praca/warszawa;wp/ostatnich%2024h;p,1?rd=0&et=3%2C17%2C4&ao=false&tc=0&wm=hybrid%2Cfull-office')
-    PracujDownloader().download_jobs("https://www.pracuj.pl/praca/ostatnich%2024h;p,1/praca%20zdalna;wm,home-office?et=3%2C17%2C4&ao=false&tc=0")
+def download_and_send():
+    PracujDownloader().download_jobs('https://www.pracuj.pl/praca/warszawa;wp/ostatnich%203%20dni;p,3?rd=0&et=3%2C17%2C4&ao=false&tc=0&wm=hybrid%2Cfull-office')
+    PracujDownloader().download_jobs("https://www.pracuj.pl/praca/ostatnich%203%20dni;p,3/praca%20zdalna;wm,home-office?et=3%2C17%2C4&ao=false&tc=0")
     new_offers = (
         Job
         .objects
@@ -516,6 +516,11 @@ def do_send():
         .exclude(title__icontains='kelner')
         .exclude(title__icontains='księgowa')
         .exclude(title__icontains='engineer')
+        .exclude(title__icontains='inżynier')
+        .exclude(title__icontains='sprzedaży')
+        .exclude(title__icontains='instruktor')
+        .exclude(title__icontains='telemarketing')
+        .exclude(title__icontains='call center')
         .order_by('-lena_comparibility')
     )
 
@@ -523,3 +528,37 @@ def do_send():
     for page in paginator.page_range:
         offers = paginator.page(page).object_list.values('title', 'company__name', 'url')
         send_mail_with_offers(offers)
+
+    return "Success"
+
+@shared_task()
+def send_downloaded_today():
+    new_offers = (
+        Job
+        .objects
+        .filter(created_at__date=timezone.now().date())
+        .exclude(title__icontains='developer')
+        .exclude(title__icontains='programista')
+        .exclude(title__icontains='sprzedawca')
+        .exclude(title__icontains='handlowiec')
+        .exclude(title__icontains='software developer')
+        .exclude(title__icontains='technik')
+        .exclude(title__icontains='kucharz')
+        .exclude(title__icontains='kelner')
+        .exclude(title__icontains='księgowa')
+        .exclude(title__icontains='engineer')
+        .exclude(title__icontains='inżynier')
+        .exclude(title__icontains='sprzedaży')
+        .exclude(title__icontains='instruktor')
+        .exclude(title__icontains='telemarketing')
+        .exclude(title__icontains='call center')
+        .order_by('-lena_comparibility')
+    )
+    logger.info(f"QuerySet length: {len(queryset)}")
+
+    paginator = Paginator(new_offers, 100)
+    for page in paginator.page_range:
+        offers = paginator.page(page).object_list.values('title', 'company__name', 'url')
+        send_mail_with_offers(offers)
+
+    return "Success"
