@@ -82,7 +82,9 @@ class Job(models.Model):
         null=True,
     )
     # TODO: maybe the relation should be the other way round?
-    salary = models.ForeignKey('grabbo.JobSalary', on_delete=models.PROTECT)
+    salary = models.ForeignKey('grabbo.JobSalary', on_delete=models.PROTECT, null=True)
+    # because pracuj suxx
+    salary_text = models.CharField(max_length=256, blank=True)
     seniority = models.CharField(max_length=256)
     original_id = models.CharField(max_length=256)
     company = models.ForeignKey('grabbo.Company', on_delete=models.SET_NULL, null=True)
@@ -90,6 +92,8 @@ class Job(models.Model):
     url = models.CharField(max_length=256)
     description = models.TextField(blank=True)
     status = models.IntegerField(choices=HypeStatus.choices, default=HypeStatus.UNKNOWN)
+    responsibilities = models.TextField(blank=True)
+    requirements = models.TextField(blank=True)
 
     objects = JobManager()
 
