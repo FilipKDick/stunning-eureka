@@ -17,7 +17,7 @@ class CompanyManager(models.Manager):
     def create_or_update_if_better(
         self,
         name: str,
-        url: str,
+        url: str = '',
         **kwargs,
     ):
         url = url.strip()

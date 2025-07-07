@@ -38,7 +38,6 @@ class Company(models.Model):
 class JobLocation(models.Model):
     job = models.ForeignKey('grabbo.Job', on_delete=models.CASCADE)
     is_remote = models.BooleanField()
-    is_covid_remote = models.BooleanField()
     city = models.CharField(max_length=32, null=True, blank=True)
     street = models.CharField(max_length=128, null=True, blank=True)
 

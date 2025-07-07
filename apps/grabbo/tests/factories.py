@@ -19,7 +19,6 @@ class CompanyFactory(factory.django.DjangoModelFactory):
 class JobLocationFactory(factory.django.DjangoModelFactory):
     job = factory.SubFactory('apps.grabbo.tests.factories.JobFactory')
     is_remote = fuzzy.FuzzyChoice([True, False])
-    is_covid_remote = fuzzy.FuzzyChoice([True, False])
     city = factory.Faker('city')
     street = factory.Faker('street_address')
 
